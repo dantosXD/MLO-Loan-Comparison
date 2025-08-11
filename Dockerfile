@@ -1,7 +1,7 @@
 # Multi-stage build for Vite + React (static site)
 
 # 1) Build stage
-FROM node:18-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
 # Install deps
