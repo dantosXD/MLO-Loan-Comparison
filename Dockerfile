@@ -12,14 +12,18 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# 2) Runtime stage (Nginx)
-FROM nginx:1.25-alpine
+# 2) Runtime stage (Node with serve)
+FROM node:22-alpine AS runtime
+WORKDIR /app
 
-# Nginx config for SPA routing
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Install a lightweight static file server
+RUN npm i -g serve
 
 # Copy built assets
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/dist ./dist
 
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Expose the port you requested
+EXPOSE 5173
+
+# Serve the built app on port 5173
+CMD ["serve", "-s", "dist", "-l", "5173"]
