@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "name": "Kaegan Delaney",
+  "loanData": {
+    "loanType": "refinance",
+    "purchasePrice": 400000,
+    "downPayment": 80000,
+    "refinanceLoanAmount": 289000,
+    "currentPropertyValue": 411589,
+    "hoi": 1461.11,
+    "propertyTaxes": 3450,
+    "programs": [
+      {
+        "id": 1754934911003,
+        "type": "conventional",
+        "rate": 7,
+        "term": 30,
+        "selected": true,
+        "name": "Conventional Fixed 30yr",
+        "buyDown": false,
+        "buyDownCost": 0,
+        "effectiveRate": 7,
+        "previousMonthlyPITI": 2834.9
+      },
+      {
+        "id": 1754940233862,
+        "type": "conventional",
+        "rate": 6.75,
+        "term": 30,
+        "selected": true,
+        "name": "Housing Impact Program | 30yr Fixed",
+        "buyDown": false,
+        "buyDownCost": 0,
+        "effectiveRate": 7,
+        "previousMonthlyPITI": 2834.9
+      },
+      {
+        "id": 1754940340482,
+        "type": "conventional",
+        "rate": 7,
+        "term": 30,
+        "selected": true,
+        "name": "Housing Impact Buy Down | 30yr Fixed",
+        "buyDown": true,
+        "buyDownCost": 3612,
+        "effectiveRate": 6.375,
+        "rateReduction": 0.625,
+        "previousMonthlyPITI": 2834.9
+      }
+    ]
+  },
+  "preferredProgramId": 1754940340482
+}

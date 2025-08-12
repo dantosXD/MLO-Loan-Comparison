@@ -5,8 +5,14 @@ import {
   getLoanAmount,
   formatCurrency
 } from './utils/calculations';
-import { DebtManagement, ScenarioManagement, LoanPrograms, ComparisonResults, RecommendationSummary, BuydownAnalysis, ExportOptions } from './components';
-import { storageManager } from './utils/storageManager';
+import { 
+  DebtManagement,
+  ScenarioManagement,
+  LoanPrograms,
+  ComparisonResults,
+  RecommendationSummary,
+  BuydownAnalysis
+} from './components';
 
 // LoanParameters component (keeping inline for now)
 interface LoanParametersProps {
@@ -132,24 +138,14 @@ const LoanComparisonTool = () => {
 
   // Load saved scenarios on mount
   useEffect(() => {
-    const loadScenarios = async () => {
+    const saved = localStorage.getItem('loanComparisonScenarios');
+    if (saved) {
       try {
-        const scenarios = await storageManager.getScenarios();
-        // Convert new format to existing format for compatibility
-        const convertedScenarios = scenarios.map(s => ({
-          id: s.name, // Use name as ID for now
-          name: s.name,
-          version: '1.0', // Add required version field
-          loanData: s.loanData,
-          preferredProgramId: null, // Will be enhanced later
-          createdAt: s.createdAt
-        }));
-        setSavedScenarios(convertedScenarios);
+        setSavedScenarios(JSON.parse(saved));
       } catch (error) {
         console.error('Failed to load saved scenarios:', error);
       }
-    };
-    loadScenarios();
+    }
   }, []);
 
   // Helper functions
@@ -216,27 +212,22 @@ const LoanComparisonTool = () => {
   };
 
   // Scenario management functions
-  const saveScenario = async () => {
+  const saveScenario = () => {
     if (!scenarioName.trim()) return;
     
     const scenario: SavedScenario = {
       id: Date.now().toString(),
-      name: scenarioName,
-      version: '1.0',
+      name: scenarioName.trim(),
+      version: '1',
       createdAt: new Date().toISOString(),
-      loanData,
+      loanData: { ...loanData },
       preferredProgramId
     };
 
-    try {
-      await storageManager.saveScenario(scenarioName, loanData);
-      const updatedScenarios = [...savedScenarios, scenario];
-      setSavedScenarios(updatedScenarios);
-      setScenarioName('');
-    } catch (error) {
-      console.error('Failed to save scenario:', error);
-      alert('Failed to save scenario. Please try again.');
-    }
+    const updatedScenarios = [...savedScenarios, scenario];
+    setSavedScenarios(updatedScenarios);
+    localStorage.setItem('loanComparisonScenarios', JSON.stringify(updatedScenarios));
+    setScenarioName('');
   };
 
   const loadScenario = (scenario: SavedScenario) => {
@@ -244,15 +235,10 @@ const LoanComparisonTool = () => {
     setPreferredProgramId(scenario.preferredProgramId || null);
   };
 
-  const deleteScenario = async (id: string) => {
-    try {
-      await storageManager.deleteScenario(id);
-      const updatedScenarios = savedScenarios.filter(s => s.id !== id);
-      setSavedScenarios(updatedScenarios);
-    } catch (error) {
-      console.error('Failed to delete scenario:', error);
-      alert('Failed to delete scenario. Please try again.');
-    }
+  const deleteScenario = (id: string) => {
+    const updatedScenarios = savedScenarios.filter(s => s.id !== id);
+    setSavedScenarios(updatedScenarios);
+    localStorage.setItem('loanComparisonScenarios', JSON.stringify(updatedScenarios));
   };
 
   const handleImportScenario = (data: any) => {
@@ -304,14 +290,6 @@ const LoanComparisonTool = () => {
           onRemoveProgram={removeProgram}
           onMoveProgram={moveProgram}
           onSetPreferredProgram={setPreferredProgramId}
-        />
-
-        {/* Export Options */}
-        <ExportOptions
-          loanData={loanData}
-          selectedPrograms={getSelectedPrograms()}
-          preferredProgramId={preferredProgramId}
-          preferredProgram={getPreferredProgram()}
         />
 
         {/* Comparison Results */}

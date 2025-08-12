@@ -1,0 +1,41 @@
+{
+  "version": "1",
+  "exportedAt": "2025-01-12T12:00:00.000Z",
+  "loanData": {
+    "loanType": "purchase",
+    "purchasePrice": 500000,
+    "downPayment": 100000,
+    "downPaymentPercent": 20,
+    "refinanceAmount": 0,
+    "refinanceLoanAmount": 0,
+    "hoi": 0,
+    "propertyTaxes": 0,
+    "annualPropertyTax": 12000,
+    "annualHomeInsurance": 2400,
+    "grossMonthlyIncome": 10000,
+    "programs": [
+      {
+        "id": 1,
+        "type": "conventional",
+        "rate": 7.0,
+        "term": 30,
+        "selected": true,
+        "name": "30-Year Fixed",
+        "buyDown": false,
+        "buyDownCost": 0,
+        "effectiveRate": 7.0
+      }
+    ],
+    "debts": [
+      {
+        "id": 1,
+        "creditor": "Credit Card",
+        "balance": 5000,
+        "monthlyPayment": 150,
+        "includeInDTI": true,
+        "willBeRefinanced": false
+      }
+    ]
+  },
+  "preferredProgramId": 1
+}
