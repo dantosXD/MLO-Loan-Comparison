@@ -9,22 +9,77 @@ export interface ScenarioData {
 
 /**
  * Storage abstraction layer for loan comparison scenarios
- * Currently uses localStorage, but can be easily switched to API calls
- * without changing any component code.
+ * Uses backend API for persistent storage with localStorage fallback
  */
 class StorageManager {
+  private readonly API_BASE_URL: string;
   private readonly SCENARIOS_KEY = 'loan_scenarios';
   private readonly CURRENT_SCENARIO_KEY = 'current_scenario';
+  private useLocalStorage = false;
+
+  constructor() {
+    // Dynamically determine API URL based on environment
+    this.API_BASE_URL = this.getApiBaseUrl();
+    // Check if backend is available on initialization
+    this.checkBackendAvailability();
+  }
+
+  private getApiBaseUrl(): string {
+    // In production (served from same domain), use relative path
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return '/api';
+    }
+    
+    // In development, use localhost backend
+    return 'http://localhost:3001/api';
+  }
+
+  private async checkBackendAvailability(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.API_BASE_URL}/scenarios`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      this.useLocalStorage = !response.ok;
+      return response.ok;
+    } catch (error) {
+      console.warn('Backend not available, using localStorage:', (error as Error).message);
+      this.useLocalStorage = true;
+      return false;
+    }
+  }
 
   /**
    * Get all saved scenarios
    */
   async getScenarios(): Promise<ScenarioData[]> {
+    if (this.useLocalStorage) {
+      return this.getScenariosFromLocalStorage();
+    }
+
+    try {
+      const response = await fetch(`${this.API_BASE_URL}/scenarios`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result.success ? result.data : [];
+    } catch (error) {
+      console.error('Error loading scenarios from API, falling back to localStorage:', error);
+      this.useLocalStorage = true;
+      return this.getScenariosFromLocalStorage();
+    }
+  }
+
+  private async getScenariosFromLocalStorage(): Promise<ScenarioData[]> {
     try {
       const data = localStorage.getItem(this.SCENARIOS_KEY);
       return data ? JSON.parse(data) : [];
     } catch (error) {
-      console.error('Error loading scenarios:', error);
+      console.error('Error loading scenarios from localStorage:', error);
       return [];
     }
   }
@@ -33,8 +88,35 @@ class StorageManager {
    * Save a new scenario or update existing one
    */
   async saveScenario(name: string, loanData: LoanData): Promise<void> {
+    if (this.useLocalStorage) {
+      return this.saveScenarioToLocalStorage(name, loanData);
+    }
+
     try {
-      const scenarios = await this.getScenarios();
+      const response = await fetch(`${this.API_BASE_URL}/scenarios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, loanData })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save scenario');
+      }
+    } catch (error) {
+      console.error('Error saving scenario to API, falling back to localStorage:', error);
+      this.useLocalStorage = true;
+      return this.saveScenarioToLocalStorage(name, loanData);
+    }
+  }
+
+  private async saveScenarioToLocalStorage(name: string, loanData: LoanData): Promise<void> {
+    try {
+      const scenarios = await this.getScenariosFromLocalStorage();
       const existingIndex = scenarios.findIndex(s => s.name === name);
       
       const scenarioData: ScenarioData = {
@@ -52,7 +134,7 @@ class StorageManager {
 
       localStorage.setItem(this.SCENARIOS_KEY, JSON.stringify(scenarios));
     } catch (error) {
-      console.error('Error saving scenario:', error);
+      console.error('Error saving scenario to localStorage:', error);
       throw new Error('Failed to save scenario');
     }
   }
@@ -74,12 +156,38 @@ class StorageManager {
    * Delete a scenario by name
    */
   async deleteScenario(name: string): Promise<void> {
+    if (this.useLocalStorage) {
+      return this.deleteScenarioFromLocalStorage(name);
+    }
+
     try {
-      const scenarios = await this.getScenarios();
+      const response = await fetch(`${this.API_BASE_URL}/scenarios/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete scenario');
+      }
+    } catch (error) {
+      console.error('Error deleting scenario from API, falling back to localStorage:', error);
+      this.useLocalStorage = true;
+      return this.deleteScenarioFromLocalStorage(name);
+    }
+  }
+
+  private async deleteScenarioFromLocalStorage(name: string): Promise<void> {
+    try {
+      const scenarios = await this.getScenariosFromLocalStorage();
       const filteredScenarios = scenarios.filter(s => s.name !== name);
       localStorage.setItem(this.SCENARIOS_KEY, JSON.stringify(filteredScenarios));
     } catch (error) {
-      console.error('Error deleting scenario:', error);
+      console.error('Error deleting scenario from localStorage:', error);
       throw new Error('Failed to delete scenario');
     }
   }

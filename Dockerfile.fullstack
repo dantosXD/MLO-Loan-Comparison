@@ -1,0 +1,76 @@
+# Multi-stage build for Full Stack Loan Comparison Tool
+# Frontend (React/Vite) + Backend (Node.js/Express/SQLite)
+
+# Stage 1: Build Frontend
+FROM node:22-alpine AS frontend-build
+WORKDIR /app/frontend
+
+# Copy frontend package files
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy frontend source and build
+COPY src ./src
+COPY public ./public
+COPY index.html ./
+COPY vite.config.ts ./
+COPY tsconfig*.json ./
+COPY tailwind.config.js ./
+COPY postcss.config.js ./
+
+# Build frontend
+RUN npm run build
+
+# Stage 2: Setup Backend
+FROM node:22-alpine AS backend-setup
+WORKDIR /app/backend
+
+# Copy backend package files
+COPY backend/package*.json ./
+RUN npm ci --only=production
+
+# Copy backend source
+COPY backend/ ./
+
+# Stage 3: Production Runtime
+FROM node:22-alpine AS production
+WORKDIR /app
+
+# Install production dependencies
+RUN apk add --no-cache \
+    sqlite \
+    dumb-init \
+    && addgroup -g 1001 -S nodejs \
+    && adduser -S nodejs -u 1001
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/backups /app/logs \
+    && chown -R nodejs:nodejs /app
+
+# Copy backend from build stage
+COPY --from=backend-setup --chown=nodejs:nodejs /app/backend ./backend
+
+# Copy frontend build from build stage
+COPY --from=frontend-build --chown=nodejs:nodejs /app/dist ./backend/public
+
+# Switch to non-root user
+USER nodejs
+
+# Set working directory to backend
+WORKDIR /app/backend
+
+# Environment variables
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV DB_PATH=/app/data/loan_comparison.db
+ENV DB_BACKUP_PATH=/app/backups/
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# Expose port
+EXPOSE 3001
+
+# Initialize database and start server
+CMD ["dumb-init", "node", "server.js"]

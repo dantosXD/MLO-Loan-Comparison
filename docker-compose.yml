@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  loan-comparison-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.fullstack
+    container_name: loan-comparison-fullstack
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_PATH=/app/data/loan_comparison.db
+      - DB_BACKUP_PATH=/app/backups/
+      - CORS_ORIGIN=http://localhost:3001
+    volumes:
+      # Persist database and backups
+      - loan_data:/app/data
+      - loan_backups:/app/backups
+      - loan_logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  loan_data:
+    driver: local
+  loan_backups:
+    driver: local
+  loan_logs:
+    driver: local

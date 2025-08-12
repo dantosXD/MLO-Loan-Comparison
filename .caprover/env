@@ -1,0 +1,17 @@
+# CapRover Environment Variables for Loan Comparison Tool
+# These will be automatically set in CapRover deployment
+
+# Application Configuration
+NODE_ENV=production
+PORT=3001
+
+# Database Configuration
+DB_PATH=/app/data/loan_comparison.db
+DB_BACKUP_PATH=/app/backups/
+
+# Security Configuration (CapRover will generate these)
+JWT_SECRET=%%cap_gen_random_hex(32)%%
+BCRYPT_ROUNDS=12
+
+# CORS Configuration (will be set to your domain)
+CORS_ORIGIN=https://%%cap_appname%%.%%cap_root_domain%%
