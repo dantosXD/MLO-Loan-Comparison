@@ -1,7 +1,8 @@
-import React from 'react';
-import { Plus, X, ChevronUp, ChevronDown, Info } from 'lucide-react';
-import { Program, LoanData } from '../types';
-import { calculateMonthlyPayment, calculateDTIForProgram, formatCurrency, getLoanAmount } from '../utils/calculations';
+import React, { useState } from 'react';
+import { ChevronUp, ChevronDown, X, Settings, Users, Calculator, Plus, Info } from 'lucide-react';
+import { LoanData, Program, ProgramDebtSelection } from '../types';
+import { calculateDTIForProgram, calculateMonthlyPayment, formatCurrency, getLoanAmount } from '../utils/calculations';
+import DebtSelectionModal from './DebtSelectionModal';
 
 interface LoanProgramsProps {
   loanData: LoanData;
@@ -9,6 +10,7 @@ interface LoanProgramsProps {
   onUpdateProgram: (id: number, updates: Partial<Program>) => void;
   onAddProgram: () => void;
   onRemoveProgram: (id: number) => void;
+  onUpdateLoanData: (updates: Partial<LoanData>) => void;
   onMoveProgram: (id: number, direction: 'up' | 'down') => void;
   onSetPreferredProgram: (id: number) => void;
 }
@@ -19,9 +21,70 @@ const LoanPrograms: React.FC<LoanProgramsProps> = ({
   onUpdateProgram,
   onAddProgram,
   onRemoveProgram,
+  onUpdateLoanData,
   onMoveProgram,
   onSetPreferredProgram
 }) => {
+  const [debtModalOpen, setDebtModalOpen] = useState(false);
+  const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
+  // Add safety checks for loanData and programs
+  if (!loanData) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-700 mb-4">Loan Programs</h2>
+        <p className="text-gray-500">Loading loan data...</p>
+      </div>
+    );
+  }
+
+  const programs = loanData.programs || [];
+  const debts = loanData.debts || [];
+  const programDebtSelections = loanData.programDebtSelections || [];
+
+  // Helper functions
+  const openDebtModal = (program: Program) => {
+    setSelectedProgram(program);
+    setDebtModalOpen(true);
+  };
+
+  const handleDebtSelectionSave = (selection: ProgramDebtSelection) => {
+    const updatedSelections = programDebtSelections.filter(s => s.programId !== selection.programId);
+    updatedSelections.push(selection);
+    onUpdateLoanData({ programDebtSelections: updatedSelections });
+  };
+
+  const getDebtSelectionForProgram = (programId: number): ProgramDebtSelection | undefined => {
+    return programDebtSelections.find(selection => selection.programId === programId);
+  };
+
+  const calculateProgramDTI = (program: Program): any => {
+    const programDebtSelection = getDebtSelectionForProgram(program.id);
+    
+    if (programDebtSelection) {
+      // Use program-specific debt calculation
+      const housingPayment = calculateMonthlyPayment(
+        program.overrideLoanAmount || getLoanAmount(loanData),
+        program.effectiveRate || program.rate,
+        program.term
+      ) + (loanData.annualPropertyTax / 12) + (loanData.annualHomeInsurance / 12);
+
+      const totalMonthlyObligations = housingPayment + programDebtSelection.totalMonthlyDebt;
+      const housingDTI = loanData.grossMonthlyIncome > 0 ? (housingPayment / loanData.grossMonthlyIncome) * 100 : 0;
+      const totalDTI = loanData.grossMonthlyIncome > 0 ? (totalMonthlyObligations / loanData.grossMonthlyIncome) * 100 : 0;
+
+      return {
+        totalDTI,
+        housingDTI,
+        totalMonthlyObligations,
+        housingPayment,
+        debtPayments: programDebtSelection.totalMonthlyDebt
+      };
+    }
+
+    // Fallback to original calculation
+    return calculateDTIForProgram(loanData, program);
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
       <div className="flex items-center justify-between mb-4">
@@ -44,65 +107,86 @@ const LoanPrograms: React.FC<LoanProgramsProps> = ({
       </div>
 
       <div className="space-y-6">
-        {loanData.programs.map((program, index) => (
-          <div key={program.id} className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center gap-4 mb-4">
-              <input
-                type="checkbox"
-                checked={program.selected}
-                onChange={(e) => onUpdateProgram(program.id, { selected: e.target.checked })}
-              />
-              <input
-                type="text"
-                value={program.name}
-                onChange={(e) => onUpdateProgram(program.id, { name: e.target.value })}
-                className="px-3 py-2 border border-gray-300 rounded-md"
-              />
-              <input
-                type="radio"
-                name="preferred"
-                checked={preferredProgramId === program.id}
-                onChange={() => onSetPreferredProgram(program.id)}
-              />
-              <span className="text-sm text-gray-600">Preferred</span>
-              
-              {/* Move buttons */}
-              <div className="flex flex-col">
-                <button
-                  onClick={() => onMoveProgram(program.id, 'up')}
-                  disabled={index === 0}
-                  className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                >
-                  <ChevronUp size={14} />
-                </button>
-                <button
-                  onClick={() => onMoveProgram(program.id, 'down')}
-                  disabled={index === loanData.programs.length - 1}
-                  className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                >
-                  <ChevronDown size={14} />
-                </button>
-              </div>
-              
-              <button
-                onClick={() => onRemoveProgram(program.id)}
-                className="text-red-600 hover:text-red-800 ml-auto"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-4 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rate (%)</label>
+        {programs.map((program, index) => {
+          const programDebtSelection = getDebtSelectionForProgram(program.id);
+          const programDTI = calculateProgramDTI(program);
+          const selectedDebtCount = programDebtSelection ? programDebtSelection.selectedDebtIds.length : debts.filter(d => d.includeInDTI).length;
+          
+          return (
+            <div key={program.id} className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center gap-4 mb-4">
                 <input
-                  type="number"
-                  step="0.001"
-                  value={program.rate}
-                  onChange={(e) => onUpdateProgram(program.id, { rate: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  type="checkbox"
+                  checked={program.selected}
+                  onChange={(e) => onUpdateProgram(program.id, { selected: e.target.checked })}
                 />
+                <input
+                  type="text"
+                  value={program.name}
+                  onChange={(e) => onUpdateProgram(program.id, { name: e.target.value })}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                />
+                
+                {/* Debt Selection Button */}
+                <button
+                  onClick={() => openDebtModal(program)}
+                  className="flex items-center gap-2 px-3 py-2 bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200 transition-colors"
+                  title="Configure debt selection for this program"
+                >
+                  <Users size={16} />
+                  <span className="text-sm font-medium">{selectedDebtCount} Debts</span>
+                  {programDebtSelection && (
+                    <span className="text-xs bg-purple-200 px-2 py-1 rounded-full">
+                      {formatCurrency(programDebtSelection.totalMonthlyDebt)}/mo
+                    </span>
+                  )}
+                </button>
+                
+                <input
+                  type="radio"
+                  name="preferred"
+                  checked={preferredProgramId === program.id}
+                  onChange={() => onSetPreferredProgram(program.id)}
+                />
+                <span className="text-sm text-gray-600">Preferred</span>
+                
+                {/* Move buttons */}
+                <div className="flex flex-col">
+                  <button
+                    onClick={() => onMoveProgram(program.id, 'up')}
+                    disabled={index === 0}
+                    className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => onMoveProgram(program.id, 'down')}
+                    disabled={index === programs.length - 1}
+                    className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+                
+                <button
+                  onClick={() => onRemoveProgram(program.id)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <X size={16} />
+                </button>
               </div>
+
+              <div className="grid grid-cols-4 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rate (%)</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={program.rate}
+                    onChange={(e) => onUpdateProgram(program.id, { rate: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Term (years)</label>
                 <input
@@ -124,8 +208,15 @@ const LoanPrograms: React.FC<LoanProgramsProps> = ({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">DTI (%)</label>
-                <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md">
-                  {calculateDTIForProgram(program, loanData).toFixed(1)}%
+                <div className={`px-3 py-2 border border-gray-300 rounded-md ${
+                  programDebtSelection ? 'bg-purple-50 border-purple-200' : 'bg-gray-100'
+                }`}>
+                  <div className="font-medium">{programDTI.totalDTI.toFixed(1)}%</div>
+                  {programDebtSelection && (
+                    <div className="text-xs text-purple-600 mt-1">
+                      Custom debt selection
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -188,8 +279,23 @@ const LoanPrograms: React.FC<LoanProgramsProps> = ({
               )}
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
+
+      {/* Debt Selection Modal */}
+      {selectedProgram && (
+        <DebtSelectionModal
+          isOpen={debtModalOpen}
+          onClose={() => setDebtModalOpen(false)}
+          program={selectedProgram}
+          debts={debts}
+          currentSelection={getDebtSelectionForProgram(selectedProgram.id)}
+          allPrograms={programs}
+          allSelections={programDebtSelections}
+          onSave={handleDebtSelectionSave}
+        />
+      )}
     </div>
   );
 };

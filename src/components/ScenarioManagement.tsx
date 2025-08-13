@@ -31,7 +31,10 @@ const ScenarioManagement: React.FC<ScenarioManagementProps> = ({
   const [importText, setImportText] = useState('');
 
   const handleJsonPaste = () => {
-    if (!importText.trim()) return;
+    if (!importText.trim()) {
+      alert('Please paste JSON data first.');
+      return;
+    }
     
     const result = parseJsonImport(importText);
     if (result.success && result.data) {
@@ -39,7 +42,8 @@ const ScenarioManagement: React.FC<ScenarioManagementProps> = ({
       setImportText('');
       setShowImport(false);
     } else {
-      alert(result.error || 'Failed to import JSON');
+      console.error('Import error:', result.error);
+      alert(`Import failed: ${result.error || 'Unknown error'}`);
     }
   };
 
@@ -47,12 +51,25 @@ const ScenarioManagement: React.FC<ScenarioManagementProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const result = await parseJsonFileImport(file);
-    if (result.success && result.data) {
-      onImportScenario(result.data);
-      setShowImport(false);
-    } else {
-      alert(result.error || 'Failed to import file');
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      alert('Please select a JSON file (.json extension required).');
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      const result = await parseJsonFileImport(file);
+      if (result.success && result.data) {
+        onImportScenario(result.data);
+        setShowImport(false);
+      } else {
+        console.error('File import error:', result.error);
+        alert(`File import failed: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('File reading error:', error);
+      alert('Failed to read the file. Please ensure it\'s a valid JSON file.');
     }
     
     // Reset file input

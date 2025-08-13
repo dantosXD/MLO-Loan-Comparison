@@ -37,13 +37,24 @@ const DebtManagement: React.FC<DebtManagementProps> = ({ loanData, onUpdateLoanD
   };
 
   const handleDebtPaste = () => {
-    if (!debtPasteText.trim()) return;
+    if (!debtPasteText.trim()) {
+      alert('Please paste debt data first.');
+      return;
+    }
     
-    const newDebts = parseDebtsPaste(debtPasteText, loanData.debts);
-    if (newDebts.length > 0) {
-      onUpdateLoanData({ debts: [...loanData.debts, ...newDebts] });
-      setDebtPasteText('');
-      setShowDebtImport(false);
+    try {
+      const newDebts = parseDebtsPaste(debtPasteText, loanData.debts);
+      if (newDebts.length > 0) {
+        onUpdateLoanData({ debts: [...loanData.debts, ...newDebts] });
+        setDebtPasteText('');
+        setShowDebtImport(false);
+        alert(`Successfully imported ${newDebts.length} debt(s).`);
+      } else {
+        alert('No valid debt data found. Please check the format.');
+      }
+    } catch (error) {
+      console.error('Paste import error:', error);
+      alert('Failed to parse pasted data. Please check the format.');
     }
   };
 
@@ -51,12 +62,28 @@ const DebtManagement: React.FC<DebtManagementProps> = ({ loanData, onUpdateLoanD
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const result = await parseDebtFileImport(file, loanData.debts);
-    if (result.success && result.debts) {
-      onUpdateLoanData({ debts: [...loanData.debts, ...result.debts] });
-      setShowDebtImport(false);
-    } else {
-      alert(result.error || 'Failed to import debts');
+    // Validate file type
+    const allowedExtensions = ['json', 'csv', 'xlsx', 'xls'];
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+      alert('Please select a supported file type: JSON, CSV, XLSX, or XLS.');
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      const result = await parseDebtFileImport(file, loanData.debts);
+      if (result.success && result.debts) {
+        onUpdateLoanData({ debts: [...loanData.debts, ...result.debts] });
+        setShowDebtImport(false);
+        alert(`Successfully imported ${result.debts.length} debt(s) from ${file.name}.`);
+      } else {
+        console.error('File import error:', result.error);
+        alert(`Import failed: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('File reading error:', error);
+      alert('Failed to read the file. Please ensure it\'s a valid file.');
     }
     
     // Reset file input
@@ -94,19 +121,22 @@ const DebtManagement: React.FC<DebtManagementProps> = ({ loanData, onUpdateLoanD
 
       {showDebtImport && (
         <div className="mb-4 p-4 bg-gray-50 rounded-md">
-          <h3 className="text-sm font-medium mb-2">Import Debts</h3>
-          <div className="space-y-3">
+          <h3 className="text-sm font-medium mb-3">Import Debts</h3>
+          <div className="space-y-4">
             <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Paste tab-separated data (Creditor, Balance, Monthly Payment):
+              <label className="block text-xs text-gray-600 mb-2">
+                <strong>Paste Data:</strong> Supports JSON, CSV, tab-separated, comma-separated, or pipe-separated data
               </label>
               <textarea
                 value={debtPasteText}
                 onChange={(e) => setDebtPasteText(e.target.value)}
-                placeholder="Chase Card	5000	150&#10;Auto Loan	25000	450"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
-                rows={3}
+                placeholder={`Examples:\n\nJSON: [{"creditor":"Credit Card","balance":5000,"monthlyPayment":150}]\n\nCSV: Credit Card,5000,150\n\nTab-separated: Credit Card\t5000\t150`}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md font-mono"
+                rows={4}
               />
+              <div className="mt-2 text-xs text-gray-500">
+                <strong>Format:</strong> Creditor, Balance, Monthly Payment, Include in DTI (optional), Will be Refinanced (optional)
+              </div>
               <button
                 onClick={handleDebtPaste}
                 disabled={!debtPasteText.trim()}
@@ -115,18 +145,45 @@ const DebtManagement: React.FC<DebtManagementProps> = ({ loanData, onUpdateLoanD
                 Import from Paste
               </button>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Or upload file:</span>
-              <label className="flex items-center gap-2 px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 cursor-pointer">
-                <Upload size={14} />
-                Choose File
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={handleDebtFileUpload}
-                  className="hidden"
-                />
-              </label>
+            <div className="border-t pt-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm text-gray-600"><strong>Or upload file:</strong></span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <label className="flex items-center gap-2 px-3 py-2 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200 cursor-pointer">
+                  <FileText size={14} />
+                  JSON File
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleDebtFileUpload}
+                    className="hidden"
+                  />
+                </label>
+                <label className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 cursor-pointer">
+                  <FileText size={14} />
+                  CSV File
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleDebtFileUpload}
+                    className="hidden"
+                  />
+                </label>
+                <label className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200 cursor-pointer">
+                  <FileText size={14} />
+                  Excel File
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleDebtFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <div className="mt-2 text-xs text-gray-500">
+                <strong>Supported formats:</strong> JSON (.json), CSV (.csv), Excel (.xlsx, .xls)
+              </div>
             </div>
           </div>
         </div>

@@ -22,6 +22,13 @@ export interface Debt {
   willBeRefinanced: boolean;
 }
 
+export interface ProgramDebtSelection {
+  programId: number;
+  selectedDebtIds: number[];
+  totalMonthlyDebt: number;
+  lastUpdated: string;
+}
+
 export interface LoanData {
   loanType: 'purchase' | 'refinance';
   purchasePrice: number;
@@ -36,6 +43,7 @@ export interface LoanData {
   grossMonthlyIncome: number;
   programs: Program[];
   debts: Debt[];
+  programDebtSelections: ProgramDebtSelection[];
 }
 
 export interface SavedScenario {
@@ -46,3 +54,9 @@ export interface SavedScenario {
   loanData: LoanData;
   preferredProgramId?: number | null;
 }
+
+// Re-export debt management types
+export * from './debt';
+
+// Re-export calculation types
+export type { DTIResult } from '../utils/calculations';

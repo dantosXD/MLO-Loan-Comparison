@@ -6,6 +6,7 @@ import {
   formatCurrency
 } from './utils/calculations';
 import { DebtManagement, ScenarioManagement, LoanPrograms, ComparisonResults, RecommendationSummary, BuydownAnalysis, ExportOptions } from './components';
+import ErrorBoundary from './components/ErrorBoundary';
 import { storageManager } from './utils/storageManager';
 
 // LoanParameters component (keeping inline for now)
@@ -256,9 +257,33 @@ const LoanComparisonTool = () => {
   };
 
   const handleImportScenario = (data: any) => {
-    if (data.loanData) {
-      setLoanData(data.loanData);
-      setPreferredProgramId(data.preferredProgramId || null);
+    try {
+      if (data && data.loanData) {
+        // Validate that loanData has the required structure
+        const loanData = data.loanData;
+        
+        // Ensure programs array exists and has valid structure
+        if (!Array.isArray(loanData.programs)) {
+          loanData.programs = [];
+        }
+        
+        // Ensure debts array exists
+        if (!Array.isArray(loanData.debts)) {
+          loanData.debts = [];
+        }
+        
+        // Set the imported data
+        setLoanData(loanData);
+        setPreferredProgramId(data.preferredProgramId || null);
+        
+        // Show success message
+        alert(`Successfully imported scenario with ${loanData.programs.length} programs and ${loanData.debts.length} debts.`);
+      } else {
+        throw new Error('Invalid data structure: missing loanData');
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      alert(`Failed to import scenario: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -296,15 +321,17 @@ const LoanComparisonTool = () => {
         />
 
         {/* Loan Programs */}
-        <LoanPrograms
-          loanData={loanData}
-          preferredProgramId={preferredProgramId}
-          onUpdateProgram={updateProgram}
-          onAddProgram={addProgram}
-          onRemoveProgram={removeProgram}
-          onMoveProgram={moveProgram}
-          onSetPreferredProgram={setPreferredProgramId}
-        />
+        <ErrorBoundary>
+          <LoanPrograms
+            loanData={loanData}
+            preferredProgramId={preferredProgramId}
+            onUpdateProgram={updateProgram}
+            onAddProgram={addProgram}
+            onRemoveProgram={removeProgram}
+            onMoveProgram={moveProgram}
+            onSetPreferredProgram={setPreferredProgramId}
+          />
+        </ErrorBoundary>
 
         {/* Export Options */}
         <ExportOptions
