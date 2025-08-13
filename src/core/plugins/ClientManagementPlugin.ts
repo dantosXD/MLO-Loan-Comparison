@@ -371,21 +371,39 @@ export class ClientManagementPlugin {
     return this.updateClientProgress(clientId, { milestones: progress.milestones });
   }
 
-  // Activity logging
-  public addActivity(clientId: string, type: ClientActivity['type'], description: string, metadata?: Record<string, any>): void {
+  // Activity logging - overloaded methods
+  public addActivity(clientId: string, type: ClientActivity['type'], description: string, metadata?: Record<string, any>): void;
+  public addActivity(clientId: string, activityData: Omit<ClientActivity, 'id' | 'clientId' | 'createdAt'>): ClientActivity;
+  public addActivity(clientId: string, typeOrData: ClientActivity['type'] | Omit<ClientActivity, 'id' | 'clientId' | 'createdAt'>, description?: string, metadata?: Record<string, any>): void | ClientActivity {
     if (!this.config.enableActivityLog) return;
 
-    const activity: ClientActivity = {
-      id: `activity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      clientId,
-      type,
-      description,
-      metadata,
-      createdAt: new Date().toISOString()
-    };
+    let activity: ClientActivity;
+
+    if (typeof typeOrData === 'string') {
+      // Legacy signature: addActivity(clientId, type, description, metadata)
+      activity = {
+        id: `activity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        clientId,
+        type: typeOrData,
+        description: description!,
+        metadata,
+        createdAt: new Date().toISOString()
+      };
+    } else {
+      // New signature: addActivity(clientId, activityData)
+      activity = {
+        ...typeOrData,
+        id: `activity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        clientId,
+        createdAt: new Date().toISOString()
+      };
+    }
 
     this.storage.setItem(`activity_${activity.id}`, JSON.stringify(activity));
     this.emit('activityAdded', activity);
+
+    // Return activity for new signature, void for legacy
+    return typeof typeOrData === 'object' ? activity : undefined;
   }
 
   public getClientActivities(clientId: string, limit: number = 50): ClientActivity[] {
@@ -533,6 +551,52 @@ export class ClientManagementPlugin {
         }
       });
     }
+  }
+
+  // Additional activity management methods
+  public updateActivity(activityId: string, updates: Partial<ClientActivity>): boolean {
+    const activityData = this.storage.getItem(`activity_${activityId}`);
+    if (!activityData) return false;
+
+    const activity = JSON.parse(activityData);
+    const updatedActivity = { ...activity, ...updates };
+    
+    this.storage.setItem(`activity_${activityId}`, JSON.stringify(updatedActivity));
+    this.emit('activityUpdated', { activityId, updates });
+    return true;
+  }
+
+  public deleteActivity(activityId: string): boolean {
+    const activityData = this.storage.getItem(`activity_${activityId}`);
+    if (!activityData) return false;
+
+    this.storage.removeItem(`activity_${activityId}`);
+    this.emit('activityDeleted', activityId);
+    return true;
+  }
+
+  public getAllActivities(): ClientActivity[] {
+    const activities: ClientActivity[] = [];
+    
+    for (let i = 0; i < this.storage.length; i++) {
+      const key = this.storage.key(i);
+      if (key?.startsWith('activity_')) {
+        const activityData = this.storage.getItem(key);
+        if (activityData) {
+          activities.push(JSON.parse(activityData));
+        }
+      }
+    }
+
+    // Sort by creation date (newest first)
+    activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    return activities;
+  }
+
+  public getActivity(activityId: string): ClientActivity | null {
+    const activityData = this.storage.getItem(`activity_${activityId}`);
+    return activityData ? JSON.parse(activityData) : null;
   }
 
   // Cleanup

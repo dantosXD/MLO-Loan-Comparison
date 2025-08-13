@@ -234,7 +234,7 @@ export const SimpleClientActivities: React.FC<SimpleClientActivitiesProps> = ({
                       </div>
 
                       {/* Actions */}
-                      {(handleUpdateActivity || handleDeleteActivity) && (
+                      {(handleUpdateActivity !== undefined || handleDeleteActivity !== undefined) && (
                         <div className="flex items-center gap-1">
                           {handleUpdateActivity && (
                             <button

@@ -124,7 +124,8 @@ const LoanComparisonTool = () => {
     annualHomeInsurance: 0,
     grossMonthlyIncome: 0,
     programs: [],
-    debts: []
+    debts: [],
+    programDebtSelections: []
   });
 
   const [preferredProgramId, setPreferredProgramId] = useState<number | null>(null);
@@ -330,6 +331,7 @@ const LoanComparisonTool = () => {
             onRemoveProgram={removeProgram}
             onMoveProgram={moveProgram}
             onSetPreferredProgram={setPreferredProgramId}
+            onUpdateLoanData={(updates) => setLoanData(prev => ({ ...prev, ...updates }))}
           />
         </ErrorBoundary>
 

@@ -502,10 +502,16 @@ interface EditActivityModalProps {
 }
 
 const EditActivityModal: React.FC<EditActivityModalProps> = ({ activity, onClose, onSave }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    description: string;
+    duration: string;
+    outcome: NonNullable<ClientActivity['outcome']>;
+    followUpRequired: boolean;
+    followUpDate: string;
+  }>({
     description: activity.description,
     duration: activity.duration?.toString() || '',
-    outcome: activity.outcome || 'successful',
+    outcome: activity.outcome || 'pending',
     followUpRequired: activity.followUpRequired || false,
     followUpDate: activity.followUpDate || ''
   });

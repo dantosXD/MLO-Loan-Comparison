@@ -11,7 +11,6 @@ RUN npm ci --only=production
 
 # Copy frontend source and build
 COPY src ./src
-COPY public ./public
 COPY index.html ./
 COPY vite.config.ts ./
 COPY tsconfig*.json ./
@@ -64,6 +63,7 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV DB_PATH=/app/data/loan_comparison.db
 ENV DB_BACKUP_PATH=/app/backups/
+ENV HOST=0.0.0.0
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

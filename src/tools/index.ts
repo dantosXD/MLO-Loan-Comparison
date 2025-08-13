@@ -3,4 +3,4 @@
  */
 
 export * from './LoanComparisonTool';
-export * from './InvestmentCalculatorTool';
+
